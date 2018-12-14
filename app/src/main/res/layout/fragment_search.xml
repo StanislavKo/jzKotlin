@@ -15,7 +15,8 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:hint="Сердце"/>
+            android:hint="Сердце"
+            android:drawableRight="@android:drawable/ic_btn_speak_now"/>
         <Button
             android:id="@+id/buttonSearch"
             android:layout_width="wrap_content"

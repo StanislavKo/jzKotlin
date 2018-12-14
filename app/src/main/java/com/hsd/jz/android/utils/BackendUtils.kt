@@ -65,7 +65,7 @@ object BackendUtils {
             }
         }
         VolleyService.requestQueue.add(jsonObjectRequest)
-        VolleyService.requestQueue.start()
+//        VolleyService.requestQueue.start()
     }
 
     fun checkSignedIn(isSignedIn: Boolean) {
@@ -86,7 +86,7 @@ object BackendUtils {
         val future = RequestFuture.newFuture<JSONObject>()
         val jsonObjectRequest = MyJsonObjectRequest(Request.Method.GET, "$URL_EPISODES/$offset/$limit/$queryEncoded", null, future, future)
         VolleyService.requestQueue.add(jsonObjectRequest)
-        VolleyService.requestQueue.start()
+//        VolleyService.requestQueue.start()
 
         var repeat = 3
         while (true) {
@@ -123,7 +123,7 @@ object BackendUtils {
         val future = RequestFuture.newFuture<JSONObject>()
         val jsonObjectRequest = MyJsonObjectRequest(Request.Method.GET, "$URL_FAVORITES", null, future, future)
         VolleyService.requestQueue.add(jsonObjectRequest)
-        VolleyService.requestQueue.start()
+//        VolleyService.requestQueue.start()
 
         var repeat = 3
         while (true) {
@@ -158,7 +158,7 @@ object BackendUtils {
         val future = RequestFuture.newFuture<JSONObject>()
         val jsonObjectRequest = MyJsonObjectRequest(Request.Method.GET, "$URL_FAVORITE_DELETE$hash" , null, future, future)
         VolleyService.requestQueue.add(jsonObjectRequest)
-        VolleyService.requestQueue.start()
+//        VolleyService.requestQueue.start()
 
         var repeat = 3
         while (true) {
@@ -184,7 +184,7 @@ object BackendUtils {
         val future = RequestFuture.newFuture<JSONObject>()
         val jsonObjectRequest = MyJsonObjectRequest(Request.Method.GET, "$URL_SEARCH_TERMS", null, future, future)
         VolleyService.requestQueue.add(jsonObjectRequest)
-        VolleyService.requestQueue.start()
+//        VolleyService.requestQueue.start()
 
         var repeat = 3
         while (true) {
@@ -219,7 +219,7 @@ object BackendUtils {
         val future = RequestFuture.newFuture<JSONObject>()
         val jsonObjectRequest = MyJsonObjectRequest(Request.Method.GET, "$URL_SEARCH_TERMS_DELETE$queryEncoded" , null, future, future)
         VolleyService.requestQueue.add(jsonObjectRequest)
-        VolleyService.requestQueue.start()
+//        VolleyService.requestQueue.start()
 
         var repeat = 3
         while (true) {

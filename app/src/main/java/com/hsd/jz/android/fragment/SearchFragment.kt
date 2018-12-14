@@ -1,37 +1,54 @@
 package com.hsd.jz.android.fragment
 
+import android.Manifest
+import android.app.Activity.RESULT_OK
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.support.v4.app.Fragment
 import android.support.v4.app.LoaderManager
+import android.support.v4.content.ContextCompat
 import android.support.v4.content.Loader
 import android.util.Log
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
+import android.view.View.OnTouchListener
 import android.view.ViewGroup
-import android.widget.*
-import com.hsd.jz.android.R
-import com.hsd.jz.android.pojo.data.Episode
-import android.content.Context
-import android.content.Intent
-import android.view.inputmethod.InputMethodManager
+import android.widget.Button
+import android.widget.EditText
+import android.widget.ListView
+import android.widget.ProgressBar
 import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import com.hsd.jz.android.R
+import com.hsd.jz.android.activity.WebEpisodeActivity
 import com.hsd.jz.android.application.App
 import com.hsd.jz.android.consts.PREF
 import com.hsd.jz.android.pojo.SearchResult
+import com.hsd.jz.android.pojo.data.Episode
 import java.util.*
-import com.google.gson.reflect.TypeToken
-import com.hsd.jz.android.activity.WebEpisodeActivity
 
 
-class SearchFragment: Fragment() {
+class SearchFragment : Fragment() {
 
     private val TAG = SearchFragment::class.simpleName
+    private val VOICE_RECOGNITION_REQUEST_CODE = 23782
+    private val REQUEST_INTERNET_PERMISSION_RESULT = 24781
+    private val REQUEST_AUDIO_PERMISSION_RESULT = 24782
 
     private lateinit var editSearch: EditText
     private lateinit var buttonSearch: Button
     private lateinit var listEpisode: ListView
     private lateinit var progressBar: ProgressBar
     private lateinit var buttonMore: Button
+    private lateinit var speechRecognizer: SpeechRecognizer
+    private lateinit var dialogVoice: DialogVoiceFragment
 
     private var lastQuery = ""
     private val episodes = LinkedList<Episode>()
@@ -90,6 +107,20 @@ class SearchFragment: Fragment() {
                 loadMore()
             }
         })
+        editSearch.setOnTouchListener(OnTouchListener { v, event ->
+            val DRAWABLE_LEFT = 0
+            val DRAWABLE_TOP = 1
+            val DRAWABLE_RIGHT = 2
+            val DRAWABLE_BOTTOM = 3
+
+            if (event.action == MotionEvent.ACTION_UP) {
+                if (event.rawX >= editSearch.getRight() - editSearch.getCompoundDrawables()[DRAWABLE_RIGHT].getBounds().width() - 8) {
+                    startVoiceRecognitionActivity()
+                    return@OnTouchListener true
+                }
+            }
+            false
+        })
         buttonMore.setOnClickListener({
             Log.i(TAG, "buttonMore.onClick view=$it")
             loadMore()
@@ -99,6 +130,12 @@ class SearchFragment: Fragment() {
             val intent = Intent(context, WebEpisodeActivity::class.java)
             intent.putExtra("hash", episode.hash)
             startActivity(intent)
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (ContextCompat.checkSelfPermission(this@SearchFragment.context!!, Manifest.permission.INTERNET) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(arrayOf(Manifest.permission.INTERNET), REQUEST_INTERNET_PERMISSION_RESULT);
+            }
         }
 
         initAdapter()
@@ -125,6 +162,58 @@ class SearchFragment: Fragment() {
             }
         }
 
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context);
+        speechRecognizer.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(p0: Bundle?) {
+                Log.i(TAG, "onReadyForSpeech")
+            }
+
+            override fun onRmsChanged(p0: Float) {
+//                Log.i(TAG, "onRmsChanged")
+            }
+
+            override fun onBufferReceived(p0: ByteArray?) {
+                Log.i(TAG, "onBufferReceived")
+            }
+
+            override fun onPartialResults(p0: Bundle?) {
+                Log.i(TAG, "onPartialResults")
+            }
+
+            override fun onEvent(p0: Int, p1: Bundle?) {
+                Log.i(TAG, "onEvent")
+            }
+
+            override fun onBeginningOfSpeech() {
+                Log.i(TAG, "onBeginningOfSpeech")
+            }
+
+            override fun onEndOfSpeech() {
+                Log.i(TAG, "onEndOfSpeech")
+            }
+
+            override fun onError(p0: Int) {
+                Log.i(TAG, "onError p0=$p0")
+            }
+
+            override fun onResults(p0: Bundle?) {
+                Log.i(TAG, "onResults")
+                for (key in p0!!.keySet()) {
+                    Log.i(TAG, "onResults key=$key value=${p0[key]}")
+                }
+                if (getFragmentManager()!!.findFragmentByTag("dialogVoice") != null) {
+                    val matches = p0!!["results_recognition"] as ArrayList<String>
+                    Log.i(TAG, "onResults() matches.size=${matches.size}")
+                    if (matches.size > 0) {
+                        editSearch.setText(matches[0])
+                    }
+                }
+                speechRecognizer.stopListening()
+                dialogVoice.dismiss()
+            }
+
+        })
+
         return view
     }
 
@@ -145,6 +234,33 @@ class SearchFragment: Fragment() {
         editor.putInt("search_limit", loader.asyncTaskLoader.limit)
         editor.commit()
     }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        Log.i(TAG, "onActivityResult() requestCode=$requestCode resultCode=$resultCode ")
+
+        if (requestCode == VOICE_RECOGNITION_REQUEST_CODE && resultCode == RESULT_OK) {
+            val matches = data!!.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            Log.i(TAG, "onActivityResult() matches.size=${matches.size}")
+            if (matches.size > 0) {
+                editSearch.setText(matches[0])
+            }
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
+        if (requestCode == REQUEST_AUDIO_PERMISSION_RESULT) {
+            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                startVoiceRecognitionActivityImpl()
+            }
+        } else if (requestCode == REQUEST_INTERNET_PERMISSION_RESULT) {
+            initAdapter()
+        }
+    }
+
+    // implementation
 
     private fun initAdapter() {
         adapter = EpisodeListViewAdapter(this.context!!, android.R.layout.simple_list_item_1, android.R.id.text1, episodes)
@@ -168,6 +284,36 @@ class SearchFragment: Fragment() {
         loader.asyncTaskLoader.offset = loader.asyncTaskLoader.offset + 10
         loader.asyncTaskLoader.limit = 10
         loader.asyncTaskLoader.forceLoad()
+    }
+
+    private fun startVoiceRecognitionActivity() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (ContextCompat.checkSelfPermission(this@SearchFragment.context!!, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                startVoiceRecognitionActivityImpl()
+            } else {
+                requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_AUDIO_PERMISSION_RESULT);
+            }
+        } else {
+            startVoiceRecognitionActivityImpl()
+        }
+    }
+
+    private fun startVoiceRecognitionActivityImpl() {
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+//        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU");
+        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Что вы ищите?")
+//        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2000L)
+//        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 2000L)
+        intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, activity!!.packageName)
+        speechRecognizer.startListening(intent);
+        showVoiceDialog()
+//        startActivityForResult(intent, VOICE_RECOGNITION_REQUEST_CODE)
+    }
+
+    private fun showVoiceDialog() {
+        dialogVoice = DialogVoiceFragment()
+        dialogVoice.show(fragmentManager, "dialogVoice")
     }
 
 }
